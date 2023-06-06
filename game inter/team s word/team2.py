@@ -7,11 +7,11 @@ import threading
 import sys
 import json
 import webbrowser
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import random
 from PIL import ImageTk, Image
-#from cefpython3 import cefpython as cef
-import spam
-
+from cefpython3 import cefpython as cef
 class DateCourseApp:
     def __init__(self, window):
         self.window = window
@@ -19,7 +19,7 @@ class DateCourseApp:
         self.window.geometry("800x600")
 
         # 배경 이미지 설정
-        self.background_image = ImageTk.PhotoImage(Image.open("image.png"))
+        self.background_image = ImageTk.PhotoImage(Image.open("C:/Users/user/OneDrive - 한국산업기술대학교/바탕 화면/image.png"))
         self.background_label = tk.Label(self.window, image=self.background_image)
         self.background_label.place(x=0, y=0, relwidth=1, relheight=1)
 
@@ -282,24 +282,29 @@ class DateCourseApp:
         cancel_button.pack(side=tk.LEFT, padx=(10, 0))
         cancel_button.configure(bg='light pink')
 
-        # 지도 버튼 프레임
-        map_button_frame = tk.Frame(memo_frame)
-        map_button_frame.pack(side=tk.LEFT)
-        map_button_frame.configure(bg='light pink')
+        # 지도 및 그래프 버튼 프레임
+        map_graph_button_frame = tk.Frame(memo_frame)
+        map_graph_button_frame.pack(side=tk.LEFT)
+        map_graph_button_frame.configure(bg='light pink')
 
         # 지도 버튼
-        map_button = tk.Button(map_button_frame, text="지도", font=("맑은 고딕", 20), command=self.open_map)
-        map_button.pack(padx=10)
+        map_button = tk.Button(map_graph_button_frame, text="지도", font=("맑은 고딕", 20), command=self.open_map)
+        map_button.pack(side=tk.LEFT, padx=10)
         map_button.configure(bg='light pink')
 
-    #def showMap(frame):
-     #   global browser
-      #  sys.excepthook = cef.ExceptHook
-       # window_info = cef.WindowInfo(frame.winfo_id())
-        #window_info.SetAsChild(frame.winfo_id(), [0, 0, 800, 600])
-        #cef.Initialize()
-        #browser = cef.CreateBrowserSync(window_info, url='file:///map.html')
-        #cef.MessageLoop()
+        # 그래프 버튼
+        graph_button = tk.Button(map_graph_button_frame, text="그래프", font=("맑은 고딕", 20), command=self.open_graph)
+        graph_button.pack(side=tk.LEFT, padx=10)
+        graph_button.configure(bg='light pink')
+
+    def showMap(frame):
+        global browser
+        sys.excepthook = cef.ExceptHook
+        window_info = cef.WindowInfo(frame.winfo_id())
+        window_info.SetAsChild(frame.winfo_id(), [0, 0, 800, 600])
+        cef.Initialize()
+        browser = cef.CreateBrowserSync(window_info, url='file:///map.html')
+        cef.MessageLoop()
     def open_map(self):
         location = self.memo_text.get("1.0", tk.END).strip()  # 메모장의 내용을 가져옵니다.
         if location:
@@ -309,21 +314,88 @@ class DateCourseApp:
             # 메모장이 비어있을 경우에 대한 처리
             messagebox.showinfo("알림", "메모 내용을 입력해주세요.")
     def save_memo(self):
-        memo = "This is a memo."
-        spam.save_memo(memo)
-
+        # 메모장 칸의 내용을 가져와서 저장하는 기능을 구현할 수 있습니다.
+        memo = self.memo_text.get("1.0", tk.END)
+        # 메모 저장에 대한 추가적인 동작을 원하신다면 여기에 작성할 수 있습니다.
         # 저장 확인 메시지 박스
         messagebox.showinfo("저장 완료", "메모가 저장되었습니다.")
+        # 메모장 내용 저장
+        memo_content = self.memo_text.get(1.0, tk.END)
+        with open("memo.txt", "w") as file:
+            file.write(memo_content)
 
     def cancel_memo(self):
         # 메모 취소 시 메모장 초기화
         self.memo_text.delete("1.0", tk.END)
 
+    def open_graph(self):
+        memo_content = self.memo_text.get("1.0", tk.END).strip()  # 메모장의 내용을 가져옵니다.
+        if not memo_content:
+            messagebox.showinfo("알림", "메모 내용을 입력해주세요.")
+            return
+
+        url_restaurant = "https://openapi.gg.go.kr/Genrestrtstandpub"
+        api_key_restaurant = "073a67dd2f404141bda409a5cf579366"
+        restaurant_data = self.get_data_from_api(memo_content, url_restaurant, api_key_restaurant)
+        if not restaurant_data:
+            messagebox.showinfo("데이터 오류", "맛집 데이터를 가져오는 중 오류가 발생했습니다.")
+            return
+
+        url_cafe = "https://openapi.gg.go.kr/Genrestrtcate"
+        api_key_cafe = "34d47489070244e2ac22cc1d11fedad0"
+        cafe_data = self.get_data_from_api(memo_content, url_cafe, api_key_cafe)
+        if not cafe_data:
+            messagebox.showinfo("데이터 오류", "카페 데이터를 가져오는 중 오류가 발생했습니다.")
+            return
+
+        url_theater = "https://openapi.gg.go.kr/MovieTheater"
+        api_key_theater = "20706406f12c4505bdfa0997a06f939a"
+        theater_data = self.get_data_from_api(memo_content, url_theater, api_key_theater)
+        if not theater_data:
+            messagebox.showinfo("데이터 오류", "영화관 데이터를 가져오는 중 오류가 발생했습니다.")
+            return
+
+        try:
+            sigun_nm_list = [item['SIGUN_NM'] for item in restaurant_data]  # SIGUN_NM 데이터 추출
+            restaurant_count_list = [item['RESTAURANT_COUNT'] for item in restaurant_data]  # 맛집 개수 데이터 추출
+            cafe_count_list = [item['CAFE_COUNT'] for item in cafe_data]  # 카페 개수 데이터 추출
+            theater_count_list = [item['THEATER_COUNT'] for item in theater_data]  # 영화관 개수 데이터 추출
+        except KeyError:
+            messagebox.showinfo("데이터 오류", "데이터 처리 중 오류가 발생했습니다.")
+            return
+
+        # 그래프 생성
+        plt.figure(figsize=(10, 6))
+        plt.bar(sigun_nm_list, restaurant_count_list, label='맛집 개수')
+        plt.bar(sigun_nm_list, cafe_count_list, label='카페 개수')
+        plt.bar(sigun_nm_list, theater_count_list, label='영화관 개수')
+        plt.xlabel('지역')
+        plt.ylabel('개수')
+        plt.title('지역별 맛집, 카페, 영화관 개수 그래프')
+        plt.xticks(rotation=45)
+        plt.legend()
+
+        # 그래프를 이미지 파일로 저장
+        plt.savefig('graph.png')
+
+    def get_data_from_api(self, keyword, api_url, api_key):
+        params = {
+            "KEY": api_key,
+            "pIndex": 1,
+            "Type": "json",
+            "SIGUN_NM": keyword
+        }
+        response = requests.get(api_url, params=params)
+        if response.status_code == 200:
+            data = response.json()
+            if 'row' in data:
+                return data['row']
+        return None
+
     def run(self):
         self.window.mainloop()
 
 if __name__ == "__main__":
-    print(spam.strlen("seojfn"))
     window = tk.Tk()
     app = DateCourseApp(window)
     app.run()
